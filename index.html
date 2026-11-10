@@ -22,6 +22,14 @@
       font-size: clamp(64px, 25vw, 200px);
       font-weight: 800;
       letter-spacing: 0.05em;
+      animation: bounce 1.2s ease-in-out infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-0.25em); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      h1 { animation: none; }
     }
   </style>
 </head>
