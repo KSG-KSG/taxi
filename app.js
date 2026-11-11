@@ -186,12 +186,14 @@ function stopGps() {
 }
 
 /* ---------- 시뮬레이션: 정차 → 가속 → 정속 → 저속 반복 ---------- */
+const SIM_INTERVAL = 100; // ms
 const SIM_PATTERN = [[10, 0], [8, 20], [40, 45], [15, 10], [20, 0], [30, 60], [20, 12]]; // [초, km/h]
 function startSimulation() {
   const sim = { lat: 37.5665, lon: 126.978, clock: Date.now(), elapsed: 0 };
   const cycle = SIM_PATTERN.reduce((s, [sec]) => s + sec, 0);
+  // 배속이 높아도 주행 패턴을 촘촘히 따라가도록 0.1초마다 위치를 만든다
   gps.simTimer = setInterval(() => {
-    const step = settings.simSpeed;
+    const step = settings.simSpeed * SIM_INTERVAL / 1000;
     sim.elapsed += step;
     sim.clock += step * 1000;
     let t = sim.elapsed % cycle;
@@ -204,7 +206,7 @@ function startSimulation() {
       coords: { latitude: sim.lat, longitude: sim.lon, accuracy: 5, speed: kmh / 3.6 },
       timestamp: sim.clock,
     });
-  }, 1000);
+  }, SIM_INTERVAL);
 }
 
 /* ---------- 화면 꺼짐 방지 ---------- */
@@ -490,6 +492,7 @@ form.addEventListener('submit', (e) => {
     trip.sim = trip.sim || settings.simulate;
     startGps();
   }
+  restartTicker();
   closeModals();
   toast('설정을 저장했습니다.');
   render();
@@ -541,4 +544,11 @@ if (trip) {
   toast('진행 중인 운행을 이어서 계산합니다.');
 }
 render();
-setInterval(tick, 1000);
+
+// 시뮬레이션 중에는 0.1초마다 계산해 높은 배속에서도 시간요금이 정확하게 쌓이게 한다
+let tickTimer = null;
+function restartTicker() {
+  clearInterval(tickTimer);
+  tickTimer = setInterval(tick, settings.simulate ? SIM_INTERVAL : 1000);
+}
+restartTicker();
