@@ -2,38 +2,129 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>택시</title>
-  <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-    }
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #ffd400;
-      color: #111;
-      font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-    }
-    h1 {
-      margin: 0;
-      font-size: clamp(64px, 25vw, 200px);
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      animation: bounce 1.2s ease-in-out infinite;
-    }
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-0.25em); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      h1 { animation: none; }
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1b1b1f">
+  <meta name="description" content="GPS 이동 거리와 시간으로 요금을 계산하는 간단한 택시미터">
+  <title>택시미터</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>택시</h1>
+  <main class="device">
+    <div class="brand">TAXI METER</div>
+
+    <section class="screen">
+      <div class="status">
+        <span id="gps" class="gps off">GPS 꺼짐</span>
+        <span class="daily">일합산 : <b id="daily">0</b>원</span>
+        <span id="count">0건</span>
+      </div>
+
+      <div class="clock" id="clock">--/--[-] --:--</div>
+
+      <div class="fare-box">
+        <div class="fare-meta">
+          <span id="dist" class="dist">0.00 km</span>
+          <span id="rate" class="rate"></span>
+        </div>
+        <div class="fare"><span id="fare">0</span><small>원</small></div>
+      </div>
+
+      <div class="grid">
+        <button id="btnRun" class="cell" type="button">
+          <span class="lbl">빈차</span><span class="sub">눌러서 운행 시작</span>
+        </button>
+        <button id="btnSur" class="cell" type="button" aria-pressed="false">
+          <span class="lbl">할증</span><span class="sub">꺼짐</span>
+        </button>
+        <div id="cellDrive" class="cell" role="status" aria-live="polite">
+          <span class="lbl">대기</span><span class="sub">미터 꺼짐</span>
+        </div>
+        <button id="btnPay" class="cell" type="button">
+          <span class="lbl">지불</span><span class="sub">영수증 발행</span>
+        </button>
+      </div>
+
+      <div class="notice">
+        <p>요금: 서울 중형택시 기준 · 설정에서 변경 가능</p>
+        <p>미터가 도는 동안 화면을 켜 두세요</p>
+      </div>
+    </section>
+
+    <div class="reader">
+      <span>지불 버튼을 누르면 영수증이 발행됩니다</span>
+      <small>Press 지불 for a receipt</small>
+    </div>
+
+    <div class="keys">
+      <button id="keyHistory" class="key" type="button" aria-label="운행 기록">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6"/></svg>
+      </button>
+      <button id="keySettings" class="key" type="button" aria-label="설정 (길게 누르기)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg>
+      </button>
+      <button id="keyBack" class="key" type="button" aria-label="닫기">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 5 11l4 4 M5 11h10a4 4 0 0 1 0 8h-3"/></svg>
+      </button>
+    </div>
+  </main>
+
+  <!-- 영수증 -->
+  <div id="receiptModal" class="modal" hidden>
+    <div class="sheet receipt-sheet">
+      <div id="receipt" class="receipt"></div>
+      <div class="actions no-print">
+        <button type="button" data-act="print">인쇄 / PDF</button>
+        <button type="button" data-act="share">공유</button>
+        <button type="button" data-close>닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 운행 기록 -->
+  <div id="historyModal" class="modal" hidden>
+    <div class="sheet">
+      <h2>오늘 운행 기록</h2>
+      <ul id="historyList" class="history"></ul>
+      <div class="actions"><button type="button" data-close>닫기</button></div>
+    </div>
+  </div>
+
+  <!-- 설정 -->
+  <div id="settingsModal" class="modal" hidden>
+    <form id="settingsForm" class="sheet settings">
+      <h2>설정</h2>
+      <fieldset>
+        <legend>요금</legend>
+        <label>기본요금 (원)<input name="baseFare" type="number" min="0" step="100" required></label>
+        <label>기본거리 (m)<input name="baseDist" type="number" min="0" step="1" required></label>
+        <label>추가요금 단위 (원)<input name="unitFare" type="number" min="0" step="10" required></label>
+        <label>거리 단위 (m)<input name="unitDist" type="number" min="1" step="1" required></label>
+        <label>시간 단위 (초)<input name="unitTime" type="number" min="1" step="1" required></label>
+        <label>시간요금 적용 속도 (km/h 미만)<input name="slowKmh" type="number" min="0" step="0.01" required></label>
+        <label>할증 버튼 할증률 (%)<input name="manualRate" type="number" min="0" step="1" required></label>
+        <label class="check"><input name="nightAuto" type="checkbox"> 심야 할증 자동 (22~23시·02~04시 20%, 23~02시 40%)</label>
+      </fieldset>
+      <fieldset>
+        <legend>테스트</legend>
+        <label class="check"><input name="simulate" type="checkbox"> 시뮬레이션 모드 (가상 주행)</label>
+        <label>시뮬레이션 배속
+          <select name="simSpeed"><option value="1">1배</option><option value="5">5배</option><option value="10">10배</option></select>
+        </label>
+      </fieldset>
+      <div class="actions wrap">
+        <button type="submit">저장</button>
+        <button type="button" id="btnDefaults">기본값</button>
+        <button type="button" id="btnResetToday" class="danger">오늘 기록 초기화</button>
+        <button type="button" data-close>닫기</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
 </body>
 </html>
